@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Glow Heart Particles</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background-color: #000000; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <script>
+        
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.z = 35;
+
+        
+        function createGlowTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');      
+            gradient.addColorStop(0.3, 'rgba(255, 105, 180, 0.8)');  
+            gradient.addColorStop(0.7, 'rgba(230, 50, 120, 0.3)');   
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');           
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(32, 32, 32, 0, Math.PI * 2);
+            ctx.fill();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        const heartShape = new THREE.Shape();
+        heartShape.moveTo(0, 5); 
+        
+        
+        heartShape.bezierCurveTo(-8, 12, -16, 10, -16, 3);
+        heartShape.bezierCurveTo(-16, -5, -8, -11, 0, -15);
+        
+       
+        heartShape.bezierCurveTo(8, -11, 16, -5, 16, 3);
+        heartShape.bezierCurveTo(16, 10, 8, 12, 0, 5);
+
+        
+        const numParticles = 3500;
+        const pointsOnPath = heartShape.getSpacedPoints(numParticles);
+
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(numParticles * 3);
+        const particlesData = [];
+
+        const startPoint = pointsOnPath[0]; 
+
+        for (let i = 0; i < numParticles; i++) {
+            const target = pointsOnPath[i];
+
+            
+            positions[i * 3 + 0] = startPoint.x;
+            positions[i * 3 + 1] = startPoint.y;
+            positions[i * 3 + 2] = 0;
+
+           
+            const spreadX = (Math.random() - 0.5) * 3.5;
+            const spreadY = (Math.random() - 0.5) * 3.5;
+            const spreadZ = (Math.random() - 0.5) * 6.0; 
+
+            const targetX = target.x + spreadX;
+            const targetY = target.y + spreadY;
+            const targetZ = spreadZ;
+
+            particlesData.push({
+                x: startPoint.x,
+                y: startPoint.y,
+                z: 0,
+                targetX: targetX,
+                targetY: targetY,
+                targetZ: targetZ,
+                index: i
+            });
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.85,                          
+            map: createGlowTexture(),              
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending,     
+            depthWrite: false
+        });
+
+        const heartParticles = new THREE.Points(geometry, material);
+        scene.add(heartParticles);
+
+        const tl = gsap.timeline({ repeat: -1, repeatDelay: 2, yoyo: true });
+        const posAttribute = geometry.attributes.position;
+
+        particlesData.forEach((p, i) => {
+            tl.to(p, {
+                x: p.targetX,
+                y: p.targetY,
+                z: p.targetZ,
+                duration: gsap.utils.random(1.8, 3.5), 
+                ease: "power2.inOut",                   
+                onUpdate: () => {
+                    posAttribute.setXYZ(p.index, p.x, p.y, p.z);
+                    posAttribute.needsUpdate = true;
+                }
+            }, i * 0.0012); 
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            heartParticles.rotation.y += 0.003;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
